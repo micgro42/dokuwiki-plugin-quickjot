@@ -1,5 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect x="8" y="6" width="40" height="52" rx="4" fill="none" stroke="context-stroke, #4a4a4a" stroke-width="4"/>
-  <path d="M18 20h20M18 30h20M18 40h12" fill="none" stroke="context-stroke, #4a4a4a" stroke-width="4" stroke-linecap="round"/>
-  <path d="M40 46l14-14 6 6-14 14-8 2z" fill="context-fill, #2b6cb0"/>
+  <!--
+    The toolbar sits on a light background under light themes and a dark one under dark
+    themes, so the ink colour has to follow. Firefox honours prefers-color-scheme inside
+    an SVG used as an extension icon, which keeps this to a single file - the alternative
+    is manifest "theme_icons" with one bitmap per theme.
+    Internal CSS is fine here; SVGs rendered as images may not load external resources.
+  -->
+  <style>
+    .ink { stroke: #37373f; }
+    .nib { fill: #2b6cb0; }
+
+    @media (prefers-color-scheme: dark) {
+      .ink { stroke: #f4f4f6; }
+      .nib { fill: #8ab4e8; }
+    }
+  </style>
+
+  <g class="ink" fill="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="8" width="27" height="48" rx="5"/>
+    <path d="M16 22h12M16 32h12M16 42h7"/>
+  </g>
+
+  <path class="nib" d="M41 43 L53 31 l6 6 l-12 12 l-8 2 Z"/>
 </svg>
