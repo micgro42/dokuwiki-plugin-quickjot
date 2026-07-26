@@ -1,25 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <!--
-    The toolbar sits on a light background under light themes and a dark one under dark
-    themes, so the ink colour has to follow. Firefox honours prefers-color-scheme inside
-    an SVG used as an extension icon, which keeps this to a single file - the alternative
-    is manifest "theme_icons" with one bitmap per theme.
-    Internal CSS is fine here; SVGs rendered as images may not load external resources.
+    Dark ink, for light themes. The light-ink twin is icon-light.svg; the manifest picks
+    between them via action.theme_icons.
+
+    Every colour here is a presentation attribute, deliberately. Firefox does not apply
+    this file's <style> block when it rasterises the toolbar icon, so anything whose
+    colour lives only in CSS renders with SVG defaults - stroked shapes vanish (default
+    stroke is none) and filled ones turn black. The media query below is a bonus for the
+    contexts that do honour it, never the thing that makes the icon visible.
   -->
   <style>
-    .ink { stroke: #37373f; }
-    .nib { fill: #2b6cb0; }
-
     @media (prefers-color-scheme: dark) {
       .ink { stroke: #f4f4f6; }
       .nib { fill: #8ab4e8; }
     }
   </style>
 
-  <g class="ink" fill="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="8" y="8" width="27" height="48" rx="5"/>
-    <path d="M16 22h12M16 32h12M16 42h7"/>
+  <g class="ink" fill="none" stroke="#37373f" stroke-width="5"
+     stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6" y="7" width="30" height="50" rx="6"/>
+    <path d="M14 25h14M14 39h14"/>
   </g>
 
-  <path class="nib" d="M41 43 L53 31 l6 6 l-12 12 l-8 2 Z"/>
+  <path class="nib" fill="#2b6cb0" d="M42 42 L55 29 l6 6 l-13 13 l-8 2 Z"/>
 </svg>
