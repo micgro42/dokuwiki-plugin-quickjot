@@ -102,7 +102,8 @@ by Mozilla. Unlisted signing does that without publishing: the add-on is never l
 searchable, or given a public page. (Developer Edition, Nightly and ESR do honour that
 preference and can install an unsigned build - but this repo assumes ordinary Firefox.)
 
-Tooling lives in `firefox/package.json`:
+Tooling lives in `firefox/package.json` and needs **Node 20 or newer** - current web-ext
+does not run on Node 18, which is end-of-life anyway.
 
 ```sh
 cd firefox
@@ -110,6 +111,11 @@ npm install
 npm run lint     # AMO's own validator - run before every upload
 npm run build    # -> web-ext-artifacts/quickjot-<version>.zip
 ```
+
+The scripts pass `--ignore-files` on the command line rather than using a
+`web-ext-config` file. Recent web-ext refuses a `.js` config and wants `.cjs` or `.mjs`,
+and a config it silently ignores would quietly package the dev scaffolding - the CLI flags
+have no such failure mode.
 
 Then either upload that file at addons.mozilla.org with distribution set to **On your
 own**, or let web-ext do the round trip:
