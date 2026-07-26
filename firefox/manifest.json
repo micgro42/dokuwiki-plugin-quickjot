@@ -22,10 +22,10 @@
   "action": {
     "default_title": "Add a note to today's journal",
     "default_popup": "popup.html",
-    "default_icon": "icon.svg",
     "theme_icons": [
-      { "light": "icon-light.svg", "dark": "icon.svg", "size": 16 },
-      { "light": "icon-light.svg", "dark": "icon.svg", "size": 32 }
+      { "light": "icon-light-16.png", "dark": "icon-dark-16.png", "size": 16 },
+      { "light": "icon-light-32.png", "dark": "icon-dark-32.png", "size": 32 },
+      { "light": "icon-light-48.png", "dark": "icon-dark-48.png", "size": 48 }
     ]
   },
 

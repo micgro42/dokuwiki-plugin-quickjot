@@ -104,6 +104,32 @@ as a quote; both are pre-checked when available.
 The extension sends the raw fields and lets the plugin build the wiki markup, so escaping
 lives in exactly one place.
 
+### Icons
+
+`icon.svg` (dark ink) and `icon-light.svg` (light ink) are the sources; the `icon-*-NN.png`
+files are generated from them and are what the toolbar actually uses. Regenerate with:
+
+```sh
+cd firefox
+for size in 16 32 48; do
+    inkscape icon.svg       -o icon-dark-$size.png  -w $size -h $size
+    inkscape icon-light.svg -o icon-light-$size.png -w $size -h $size
+done
+```
+
+Three things here are deliberate and easy to undo by accident:
+
+* **Colours are presentation attributes, not CSS.** Firefox does not apply an SVG's
+  `<style>` block when it rasterises a toolbar icon, so a colour that lives only in CSS
+  silently falls back to the SVG default - stroked shapes disappear and filled ones turn
+  black. The `prefers-color-scheme` rule in `icon.svg` is a bonus for contexts that do
+  honour it (the about:addons listing), never what makes the icon visible.
+* **`theme_icons` names refer to the theme's *text* colour.** `light` is the light-ink
+  file, shown by dark themes. It reads backwards.
+* **There is no `default_icon`.** Specifying one takes precedence over `theme_icons` under
+  the Default theme, which follows the OS colour scheme - so setting it would put dark ink
+  back on a dark toolbar for anyone not using an explicit theme.
+
 ## Tests
 
 From the wiki's `_test/` directory, after `composer install` there:
