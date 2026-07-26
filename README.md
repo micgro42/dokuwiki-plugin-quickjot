@@ -88,11 +88,41 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" \
 
 ## The Firefox extension
 
-Load it from `about:debugging` → This Firefox → Load Temporary Add-on → pick
-`firefox/manifest.json`. (Temporary add-ons go away when Firefox restarts; package it
-with `web-ext build` and sign it via addons.mozilla.org for a permanent install.)
+### Installing
 
-Open its options page, enter the wiki URL and the token, and press Save - Firefox will
+Package it first - an `.xpi` is just a zip with `manifest.json` at the archive root:
+
+```sh
+cd firefox && ./build.sh        # -> ../quickjot-<version>.xpi
+```
+
+Then pick a route.
+
+**Temporary, for development.** `about:debugging` → This Firefox → Load Temporary Add-on →
+pick `firefox/manifest.json`. Gone at the next restart. Settings survive reloads only
+because the manifest pins `browser_specific_settings.gecko.id`; without it every load
+would get a fresh storage area.
+
+**Permanent on ordinary Firefox: sign it as unlisted.** Upload the `.xpi` to
+addons.mozilla.org with distribution set to *On your own*. Mozilla signs it and gives the
+signed file back, and the add-on is never listed, searchable, or given a public page.
+Install the signed file via `about:addons` → gear → *Install Add-on From File*. This is
+the only route that works on Firefox Release or Beta: they enforce signing and ignore
+`xpinstall.signatures.required`. It does mean the source goes to Mozilla and passes
+automated review, and every upload needs a fresh `version` in `manifest.json`.
+`npx web-ext sign` automates the round trip once you have an AMO API key.
+
+**Permanent without sending anything to Mozilla: switch channel.** Developer Edition,
+Nightly and ESR honour `xpinstall.signatures.required = false` in `about:config`, after
+which the unsigned `.xpi` installs and stays installed. Release and Beta expose the same
+preference but ignore it, which is the usual source of "I set it to false and it still
+won't install".
+
+Neither permanent route auto-updates: rebuild, bump `version`, reinstall. Self-hosted
+updates are possible through `browser_specific_settings.gecko.update_url`, but that needs
+somewhere to host an update manifest and is overkill for one user.
+
+Once installed, open its options page, enter the wiki URL and the token, and press Save - Firefox will
 ask for permission to reach that host, which the extension needs to make the request.
 **Test connection** confirms the token works and shows the page notes will go to.
 
