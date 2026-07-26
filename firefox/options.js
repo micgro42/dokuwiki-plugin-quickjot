@@ -22,32 +22,17 @@ function setStatus(message, kind = '') {
 }
 
 /**
- * Make sure we may talk to the configured wiki.
- *
- * The URL is only known at runtime, so the permission cannot be declared statically.
- * Requesting it has to happen from a user gesture, which is why this hangs off Save.
- *
- * @param {string} baseUrl
- * @returns {Promise<boolean>}
- */
-async function ensurePermission(baseUrl) {
-    const origin = originPattern(baseUrl);
-    if (!origin) {
-        setStatus('That does not look like a URL.', 'error');
-        return false;
-    }
-
-    if (await browser.permissions.contains({origins: [origin]})) return true;
-
-    const granted = await browser.permissions.request({origins: [origin]});
-    if (!granted) {
-        setStatus(`QuickJot needs permission to reach ${origin} to save notes.`, 'error');
-    }
-    return granted;
-}
-
-/**
  * Persist the settings, asking for the host permission on the way.
+ *
+ * The wiki URL is only known at runtime, so the permission cannot be declared
+ * statically and has to be requested here.
+ *
+ * Everything ahead of the permissions.request() call below must stay synchronous.
+ * Firefox only honours the call while the user gesture that triggered this handler is
+ * still live, and a single await anywhere before it drops the gesture and makes the
+ * call throw "permissions.request may only be called from a user input handler".
+ * That is also why there is no permissions.contains() pre-check: request() already
+ * resolves true without prompting when the permission is held.
  */
 async function save() {
     const baseUrl = els.baseUrl.value;
@@ -58,7 +43,18 @@ async function save() {
         return;
     }
 
-    if (!await ensurePermission(baseUrl)) return;
+    const origin = originPattern(baseUrl);
+    if (!origin) {
+        setStatus('That does not look like a URL.', 'error');
+        return;
+    }
+
+    // first await of this handler - nothing may be awaited above this line
+    const granted = await browser.permissions.request({origins: [origin]});
+    if (!granted) {
+        setStatus(`QuickJot needs permission to reach ${origin} to save notes.`, 'error');
+        return;
+    }
 
     await saveSettings(baseUrl, token);
     els.baseUrl.value = normaliseBaseUrl(baseUrl);
@@ -82,8 +78,28 @@ async function test() {
     }
 }
 
-els.save.addEventListener('click', save);
-els.test.addEventListener('click', test);
+/**
+ * Bind an async click handler so a rejection lands in the status line rather than
+ * disappearing into the console as an uncaught promise error.
+ *
+ * The handler is invoked directly, not wrapped in an async function, so that it still
+ * runs inside the user gesture - see the note in save().
+ *
+ * @param {HTMLElement} element
+ * @param {function(): Promise<void>} handler
+ */
+function onClick(element, handler) {
+    element.addEventListener('click', () => {
+        try {
+            Promise.resolve(handler()).catch((e) => setStatus(e.message, 'error'));
+        } catch (e) {
+            setStatus(e.message, 'error');
+        }
+    });
+}
+
+onClick(els.save, save);
+onClick(els.test, test);
 
 loadSettings().then(({baseUrl, token}) => {
     els.baseUrl.value = baseUrl;

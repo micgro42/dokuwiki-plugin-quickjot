@@ -127,14 +127,23 @@ async function submit() {
     }
 }
 
-els.save.addEventListener('click', submit);
+/**
+ * Report a rejected promise in the status line instead of losing it to the console.
+ *
+ * @param {Promise} promise
+ */
+function reportFailure(promise) {
+    Promise.resolve(promise).catch((e) => setStatus(e.message, 'error'));
+}
+
+els.save.addEventListener('click', () => reportFailure(submit()));
 els.text.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
-        submit();
+        reportFailure(submit());
     }
 });
 
-collectContext();
-showTarget();
+reportFailure(collectContext());
+reportFailure(showTarget());
 els.text.focus();
