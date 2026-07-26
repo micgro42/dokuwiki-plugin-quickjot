@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>QuickJot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="popup">
+    <textarea id="text" rows="4" placeholder="What happened?" autofocus></textarea>
+
+    <div class="options">
+        <label id="link-row" class="disabled">
+            <input type="checkbox" id="attach-link" disabled>
+            <span>
+                Attach link
+                <span class="detail" id="link-detail">no tab</span>
+            </span>
+        </label>
+        <label id="quote-row" class="disabled">
+            <input type="checkbox" id="attach-quote" disabled>
+            <span>
+                Quote selection
+                <span class="detail" id="quote-detail">nothing selected</span>
+            </span>
+        </label>
+    </div>
+
+    <div class="row">
+        <button id="save" type="button">Save</button>
+        <span class="hint" id="target">&nbsp;</span>
+    </div>
+
+    <p class="status" id="status"></p>
+
+    <script src="api.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>

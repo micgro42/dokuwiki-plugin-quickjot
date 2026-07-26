@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>QuickJot settings</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>QuickJot settings</h1>
+
+    <div class="field">
+        <label for="base-url">Wiki base URL</label>
+        <input type="text" id="base-url" placeholder="https://wiki.example.com" spellcheck="false">
+        <p class="hint">Without a trailing slash, and without <code>/doku.php</code>.</p>
+    </div>
+
+    <div class="field">
+        <label for="token">API token</label>
+        <input type="password" id="token" placeholder="eyJhbGciOi…" spellcheck="false">
+        <p class="hint">
+            Get it from your wiki: log in, open <em>Update Profile</em>, and copy the API token.
+            Regenerating it there revokes this one.
+        </p>
+    </div>
+
+    <div class="row">
+        <button id="save" type="button">Save</button>
+        <button id="test" class="secondary" type="button">Test connection</button>
+    </div>
+
+    <p class="status" id="status"></p>
+
+    <script src="api.js"></script>
+    <script src="options.js"></script>
+</body>
+</html>
