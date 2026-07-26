@@ -88,37 +88,56 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" \
 
 ## The Firefox extension
 
-### Installing
+### Development install
 
-Package it first - an `.xpi` is just a zip with `manifest.json` at the archive root:
+`about:debugging` → This Firefox → Load Temporary Add-on → pick `firefox/manifest.json`.
+Gone at the next restart. Settings survive *reloads* only because the manifest pins
+`browser_specific_settings.gecko.id`; without it every load would get a fresh storage area.
+
+### Permanent install: sign it as unlisted
+
+Firefox Release and Beta enforce add-on signing and ignore
+`xpinstall.signatures.required`, so a permanent install means getting the package signed
+by Mozilla. Unlisted signing does that without publishing: the add-on is never listed,
+searchable, or given a public page. (Developer Edition, Nightly and ESR do honour that
+preference and can install an unsigned build - but this repo assumes ordinary Firefox.)
+
+Tooling lives in `firefox/package.json`:
 
 ```sh
-cd firefox && ./build.sh        # -> ../quickjot-<version>.xpi
+cd firefox
+npm install
+npm run lint     # AMO's own validator - run before every upload
+npm run build    # -> web-ext-artifacts/quickjot-<version>.zip
 ```
 
-Then pick a route.
+Then either upload that file at addons.mozilla.org with distribution set to **On your
+own**, or let web-ext do the round trip:
 
-**Temporary, for development.** `about:debugging` → This Firefox → Load Temporary Add-on →
-pick `firefox/manifest.json`. Gone at the next restart. Settings survive reloads only
-because the manifest pins `browser_specific_settings.gecko.id`; without it every load
-would get a fresh storage area.
+```sh
+export WEB_EXT_API_KEY=user:12345678:123
+export WEB_EXT_API_SECRET=...          # from addons.mozilla.org → Developer Hub → Manage API Keys
+npm run sign                           # --channel=unlisted, downloads the signed .xpi
+```
 
-**Permanent on ordinary Firefox: sign it as unlisted.** Upload the `.xpi` to
-addons.mozilla.org with distribution set to *On your own*. Mozilla signs it and gives the
-signed file back, and the add-on is never listed, searchable, or given a public page.
-Install the signed file via `about:addons` → gear → *Install Add-on From File*. This is
-the only route that works on Firefox Release or Beta: they enforce signing and ignore
-`xpinstall.signatures.required`. It does mean the source goes to Mozilla and passes
-automated review, and every upload needs a fresh `version` in `manifest.json`.
-`npx web-ext sign` automates the round trip once you have an AMO API key.
+Never commit those credentials; `.env` is gitignored, and passing them as environment
+variables keeps them out of shell history files that record arguments.
 
-**Permanent without sending anything to Mozilla: switch channel.** Developer Edition,
-Nightly and ESR honour `xpinstall.signatures.required = false` in `about:config`, after
-which the unsigned `.xpi` installs and stays installed. Release and Beta expose the same
-preference but ignore it, which is the usual source of "I set it to false and it still
-won't install".
+Install the resulting signed `.xpi` via `about:addons` → gear → *Install Add-on From File*.
 
-Neither permanent route auto-updates: rebuild, bump `version`, reinstall. Self-hosted
+Things that will bite on submission:
+
+* **Every upload needs a new `version`** in `manifest.json`. AMO rejects a version it has
+  already seen, and there is no way to overwrite one.
+* **The extension ID is permanent.** Once AMO has accepted a submission under
+  `{72cee8b8-…}` that ID is spoken for; changing it later produces a different add-on that
+  cannot inherit the old one's storage.
+* **`optional_host_permissions: ["*://*/*"]` is deliberately broad** and may attract a
+  human reviewer rather than only the automated one. It cannot be narrowed: the wiki URL
+  is configured at runtime, so there is no host to declare up front. The extension asks
+  for the single concrete origin at runtime from the options page.
+
+Signed builds do not auto-update: bump `version`, rebuild, re-sign, reinstall. Self-hosted
 updates are possible through `browser_specific_settings.gecko.update_url`, but that needs
 somewhere to host an update manifest and is overkill for one user.
 

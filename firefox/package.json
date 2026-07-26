@@ -1,0 +1,15 @@
+{
+  "name": "quickjot-firefox",
+  "version": "0.1.0",
+  "description": "Firefox extension for the DokuWiki quickjot plugin",
+  "private": true,
+  "license": "GPL-2.0-only",
+  "scripts": {
+    "lint": "web-ext lint",
+    "build": "web-ext build --overwrite-dest",
+    "sign": "web-ext sign --channel=unlisted"
+  },
+  "devDependencies": {
+    "web-ext": "^8.3.0"
+  }
+}
