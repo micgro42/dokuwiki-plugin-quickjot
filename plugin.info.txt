@@ -1,7 +1,7 @@
 base   quickjot
 author Michael Große
 email  mic.grosse+dokuwiki@googlemail.com
-date   2026-07-26
+date   2026-07-28
 name   quickjot plugin
 desc   Append timestamped notes to today's journal page through an authenticated API
 url    https://www.dokuwiki.org/plugin:quickjot
