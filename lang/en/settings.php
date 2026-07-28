@@ -11,4 +11,7 @@ $lang['pagepattern']  = 'Page ID of today\'s journal page. <code>%</code> placeh
 $lang['notesheading'] = 'The heading notes are appended under, written exactly as it appears in the wiki text. ' .
     'It is created if the page does not have it yet.';
 $lang['timeformat']   = 'Format of the timestamp each note starts with (<code>strftime()</code> placeholders).';
+$lang['timezone']     = 'Timezone used to decide what "today" is and to stamp notes, e.g. ' .
+    '<code>Europe/Berlin</code>. Clients that send their own timezone override this; ' .
+    'leave empty to use the server\'s.';
 $lang['createpage']   = 'Create today\'s page (from the namespace template, if any) when it does not exist yet';

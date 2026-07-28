@@ -7,4 +7,5 @@
 $meta['pagepattern']  = ['string'];
 $meta['notesheading'] = ['string'];
 $meta['timeformat']   = ['string'];
+$meta['timezone']     = ['string'];
 $meta['createpage']   = ['onoff'];

@@ -33,11 +33,15 @@ breaks - so each note remains one list item.
    | `pagepattern` | `appreciation:%Y:%m:%Y-%m-%d` | page ID of today's page |
    | `notesheading` | `===== Notes =====` | heading notes go under, created if missing |
    | `timeformat` | `%H:%M` | the bold timestamp on each note |
+   | `timezone` | *(empty)* | timezone for clients that do not send their own |
    | `createpage` | on | create today's page when it does not exist yet |
 
    `pagepattern` and `timeformat` use **strftime** placeholders. Anything that is not a
    `%` sequence is taken literally, which is what lets a namespace like `appreciation`
-   survive unharmed. Times come from the server's clock and timezone.
+   survive unharmed.
+
+   `timezone` only matters for clients that send no timezone of their own; leave it empty
+   to use the server's. See *Timezones* below.
 
 3. Get an API token: log in, open **Update Profile**, and copy the API token shown there.
    This is DokuWiki's own per-user token - regenerating it revokes the old one, and it is
@@ -49,13 +53,16 @@ Both calls are `POST` to `lib/exe/ajax.php`, authenticated with
 `Authorization: Bearer <token>`. A session cookie is **not** accepted: requiring a header
 that a cross-origin page cannot set is what keeps the endpoint safe from CSRF.
 
+Both accept the timezone fields described under *Timezones*.
+
 ### `?call=plugin_quickjot_status`
 
-No parameters, no side effects. Answers with the user, the page a note would go to now,
-and whether it exists yet.
+No side effects. Answers with the user, the page a note would go to now, whether it
+exists yet, and the time and zone it would be stamped with.
 
 ```json
-{"ok":true,"user":"you","page":"appreciation:2026:07:2026-07-26","exists":false,"url":"…"}
+{"ok":true,"user":"you","page":"appreciation:2026:07:2026-07-26","exists":false,
+ "time":"14:32","timezone":"Europe/Berlin","url":"…"}
 ```
 
 ### `?call=plugin_quickjot`
@@ -68,13 +75,17 @@ Form-encoded body:
 | `quote` | no | text to render as a `>` blockquote under the note |
 | `url` | no | link to attach; must be `http`/`https` |
 | `title` | no | link title, falls back to the URL |
+| `tz` | no | IANA timezone name, e.g. `Europe/Berlin` |
+| `tzoffset` | no | UTC offset, e.g. `+02:00` |
 
 ```json
-{"ok":true,"page":"appreciation:2026:07:2026-07-26","created":true,"time":"14:32","url":"…"}
+{"ok":true,"page":"appreciation:2026:07:2026-07-26","created":true,
+ "time":"14:32","timezone":"Europe/Berlin","url":"…"}
 ```
 
 Failures answer `{"ok":false,"error":"…"}` with a matching status: 401 (no or bad token),
-403 (ACL), 404 (page missing and creation disabled), 409 (page locked), 400 (bad input).
+403 (ACL), 404 (page missing and creation disabled), 409 (page locked), 400 (bad input,
+including an unusable timezone).
 
 Example:
 
@@ -83,8 +94,31 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" \
      --data-urlencode 'text=testing the endpoint' \
      --data-urlencode 'url=https://example.com' \
      --data-urlencode 'title=Example' \
+     --data-urlencode "tz=$(cat /etc/timezone)" \
      'https://wiki.example.com/lib/exe/ajax.php?call=plugin_quickjot'
 ```
+
+## Timezones
+
+A wiki on a UTC server would otherwise roll over to tomorrow's page in the middle of your
+evening and stamp every note with the wrong time, so the *client* decides what "today"
+means. Resolution order, first usable one wins:
+
+1. `tz`, an IANA name — preferred, because it carries the DST rules.
+2. `tzoffset`, a plain UTC offset — a fallback for a server whose timezone database does
+   not know the name.
+3. The `timezone` setting, for clients that send neither.
+4. The server's own timezone.
+
+A client that sends a timezone the server can make nothing of gets a **400** rather than a
+note filed in the wrong zone. Sending nothing at all is fine and keeps steps 3 and 4.
+
+Only the *zone* comes from the client; the instant is still the server's clock. A device
+with a wrong clock therefore cannot misdate a note, and there is nothing to keep in sync.
+
+The Firefox extension sends both fields on every call, so there is nothing to configure.
+**Test connection** on its options page shows the resolved time and zone, which is the
+quickest way to confirm this is working.
 
 ## The Firefox extension
 

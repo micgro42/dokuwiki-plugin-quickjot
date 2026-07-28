@@ -7,4 +7,5 @@
 $conf['pagepattern']  = 'appreciation:%Y:%m:%Y-%m-%d';
 $conf['notesheading'] = '===== Notes =====';
 $conf['timeformat']   = '%H:%M';
+$conf['timezone']     = '';
 $conf['createpage']   = 1;

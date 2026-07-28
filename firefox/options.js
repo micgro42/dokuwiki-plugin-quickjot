@@ -70,7 +70,11 @@ async function test() {
     try {
         const status = await fetchStatus();
         const exists = status.exists ? 'exists already' : 'does not exist yet';
-        setStatus(`Connected as ${status.user}. Today's notes go to ${status.page} (${exists}).`, 'ok');
+        setStatus(
+            `Connected as ${status.user}. Today's notes go to ${status.page} (${exists}), ` +
+            `stamped ${status.time} in ${status.timezone}.`,
+            'ok'
+        );
     } catch (e) {
         setStatus(e.message, 'error');
     } finally {

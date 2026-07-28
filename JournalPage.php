@@ -2,9 +2,14 @@
 
 namespace dokuwiki\plugin\quickjot;
 
+use DateTimeImmutable;
+use DateTimeInterface;
+use DateTimeZone;
 use dokuwiki\Extension\Plugin;
 use dokuwiki\Search\Indexer;
 use dokuwiki\Utf8\PhpString;
+
+use function PHP81_BC\strftime;
 
 /**
  * All the logic behind appending a note to today's journal page
@@ -16,6 +21,9 @@ class JournalPage
     /** @var Plugin provides configuration and language strings */
     protected $plugin;
 
+    /** @var DateTimeZone|null zone dates are rendered in, resolved on first use */
+    protected $tz;
+
     /**
      * @param Plugin $plugin the quickjot plugin instance, used for getConf()/getLang()
      */
@@ -25,19 +33,145 @@ class JournalPage
     }
 
     /**
+     * Render dates in the timezone the calling device lives in
+     *
+     * A wiki running on UTC would otherwise roll over to the next page in the middle of
+     * the evening and stamp every note with the wrong time. Note that only the *zone*
+     * comes from the client - the instant is still the server's clock, which is both
+     * correct by definition and not something a client can get wrong.
+     *
+     * @param string $name IANA timezone name, e.g. "Europe/Berlin"
+     * @param string $offset UTC offset such as "+02:00", used when the name is unusable
+     * @throws QuickJotException if the client sent something, but nothing usable
+     * @return void
+     */
+    public function useTimezone($name = '', $offset = '')
+    {
+        $this->tz = $this->resolveTimezone($name, $offset);
+    }
+
+    /**
+     * The timezone dates are being rendered in
+     *
+     * @return DateTimeZone
+     */
+    public function timezone()
+    {
+        return $this->tz ??= $this->resolveTimezone('', '');
+    }
+
+    /**
+     * Pick the timezone to use, most specific source first
+     *
+     * A name the server's timezone database does not know is not by itself fatal: for
+     * "now" a plain UTC offset says the same thing, so a client that sent both stays
+     * usable on a host with outdated tzdata.
+     *
+     * @param string $name
+     * @param string $offset
+     * @throws QuickJotException
+     * @return DateTimeZone
+     */
+    protected function resolveTimezone($name, $offset)
+    {
+        $name = trim((string)$name);
+        $offset = trim((string)$offset);
+
+        foreach ([$name, $offset] as $candidate) {
+            if ($candidate === '') continue;
+            $zone = $this->makeTimezone($candidate);
+            if ($zone instanceof DateTimeZone) return $zone;
+        }
+
+        // the client asked for a timezone and we could not honour any of it - saying so
+        // beats silently stamping notes in the wrong zone, which is the bug being avoided
+        if ($name !== '' || $offset !== '') {
+            throw new QuickJotException($this->plugin->getLang('err_badtz'), 400);
+        }
+
+        // clients that do not care fall back to the wiki's own setting, then the server's
+        $zone = $this->makeTimezone(trim((string)$this->plugin->getConf('timezone')));
+        return $zone ?? new DateTimeZone(date_default_timezone_get());
+    }
+
+    /**
+     * @param string $spec timezone name or UTC offset
+     * @return DateTimeZone|null null when it is not a timezone we can use
+     */
+    protected function makeTimezone($spec)
+    {
+        if ($spec === '') return null;
+        // ISO 8601 spells UTC "Z", which DateTimeZone does not accept
+        if (strcasecmp($spec, 'Z') === 0) $spec = '+00:00';
+
+        try {
+            return new DateTimeZone($spec);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    /**
+     * The moment a note is being written, in the client's timezone
+     *
+     * @param DateTimeInterface|int|null $now a ready made moment, a timestamp, or now
+     * @return DateTimeInterface
+     */
+    public function moment($now = null)
+    {
+        if ($now instanceof DateTimeInterface) return $now;
+        $timestamp = $now === null ? time() : (int)$now;
+
+        // "@timestamp" is always parsed as UTC, so the zone has to be applied afterwards
+        return (new DateTimeImmutable('@' . $timestamp))->setTimezone($this->timezone());
+    }
+
+    /**
+     * Expand a configured strftime pattern for a given moment
+     *
+     * @param string $pattern
+     * @param DateTimeInterface|int|null $now
+     * @throws QuickJotException on a pattern the formatter cannot read
+     * @return string
+     */
+    protected function format($pattern, $now = null)
+    {
+        try {
+            return strftime($pattern, $this->moment($now));
+        } catch (QuickJotException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            throw new QuickJotException(
+                'Invalid date format in the quickjot configuration: ' . $e->getMessage(),
+                500
+            );
+        }
+    }
+
+    /**
+     * The timestamp a note written at the given moment would carry
+     *
+     * @param DateTimeInterface|int|null $now
+     * @return string
+     */
+    public function renderTime($now = null)
+    {
+        return $this->format($this->plugin->getConf('timeformat'), $now);
+    }
+
+    /**
      * The page ID today's notes belong on
      *
      * The configured pattern is expanded with strftime placeholders - anything that is not
      * a % sequence is taken literally, which is what allows a namespace like "appreciation"
      * to survive (PHP's date() would mangle every one of those letters).
      *
-     * @param int|null $now timestamp to resolve, defaults to now
+     * @param DateTimeInterface|int|null $now moment to resolve, defaults to now
      * @return string
      */
     public function getTodayId($now = null)
     {
-        if ($now === null) $now = time();
-        $id = cleanID(dformat($now, $this->plugin->getConf('pagepattern')));
+        $id = cleanID($this->format($this->plugin->getConf('pagepattern'), $now));
         if ($id === '') {
             throw new QuickJotException('The configured page pattern does not produce a valid page ID', 500);
         }
@@ -109,13 +243,11 @@ class JournalPage
      * @param string $quote text quoted from the source page, optional
      * @param string $url URL to attach as a link, optional
      * @param string $title link title, falls back to the URL itself
-     * @param int|null $now timestamp to stamp the note with, defaults to now
+     * @param DateTimeInterface|int|null $now moment to stamp the note with, defaults to now
      * @return string
      */
     public function renderNote($text, $quote = '', $url = '', $title = '', $now = null)
     {
-        if ($now === null) $now = time();
-
         $text = $this->normalize($text);
         if ($text === '') {
             throw new QuickJotException($this->plugin->getLang('err_notext'), 400);
@@ -127,8 +259,7 @@ class JournalPage
         $link = $this->renderLink($url, $title);
         if ($link !== '') $line .= ' ' . $link;
 
-        $time = dformat($now, $this->plugin->getConf('timeformat'));
-        $markup = '  * **' . $time . '** ' . $line;
+        $markup = '  * **' . $this->renderTime($now) . '** ' . $line;
 
         $quote = $this->normalize($quote);
         if ($quote !== '') {
@@ -156,7 +287,9 @@ class JournalPage
     {
         global $TEXT;
 
-        $now = time();
+        // one moment for both the page it lands on and the stamp it carries, so a note
+        // written across midnight cannot end up dated differently from its page
+        $now = $this->moment();
         $id = $this->getTodayId($now);
         $exists = page_exists($id);
 
@@ -203,7 +336,8 @@ class JournalPage
         return [
             'page' => $id,
             'created' => !$exists,
-            'time' => dformat($now, $this->plugin->getConf('timeformat')),
+            'time' => $this->renderTime($now),
+            'timezone' => $this->timezone()->getName(),
             'url' => wl($id, '', true),
         ];
     }

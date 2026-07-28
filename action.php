@@ -45,13 +45,20 @@ class action_plugin_quickjot extends ActionPlugin
             $this->authenticate();
             $journal = new JournalPage($this);
 
+            // the wiki's clock may well be in a different timezone than the device the
+            // note is written on, and it is the latter that decides what "today" is
+            $journal->useTimezone($INPUT->str('tz'), $INPUT->str('tzoffset'));
+
             if ($event->data === self::CALL_STATUS) {
-                $id = $journal->getTodayId();
+                $now = $journal->moment();
+                $id = $journal->getTodayId($now);
                 $this->respond(200, [
                     'ok' => true,
                     'user' => $INPUT->server->str('REMOTE_USER'),
                     'page' => $id,
                     'exists' => page_exists($id),
+                    'time' => $journal->renderTime($now),
+                    'timezone' => $journal->timezone()->getName(),
                     'url' => wl($id, '', true),
                 ]);
                 return;

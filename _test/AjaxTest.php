@@ -156,6 +156,45 @@ class AjaxTest extends DokuWikiTest
         $this->assertFalse($json['exists']);
     }
 
+    public function testStatusUsesTheClientTimezone()
+    {
+        global $conf;
+        // the hour in the page ID makes the shift visible without waiting for midnight
+        $conf['plugin']['quickjot']['pagepattern'] = 'quickjot:%Y-%m-%d:%H';
+
+        $here = $this->callApi('plugin_quickjot_status', ['tz' => 'UTC'], $this->token);
+        $there = $this->callApi('plugin_quickjot_status', ['tz' => 'Asia/Kolkata'], $this->token);
+
+        $this->assertSame('UTC', $here['timezone']);
+        $this->assertSame('Asia/Kolkata', $there['timezone']);
+        $this->assertNotSame($here['page'], $there['page'], 'a 5:30 shift always changes the hour');
+    }
+
+    public function testOffsetOnlyClientIsAccepted()
+    {
+        $json = $this->callApi(
+            'plugin_quickjot',
+            ['text' => 'offset note', 'tzoffset' => '+05:45'],
+            $this->token
+        );
+
+        $this->assertTrue($json['ok'], $json['error'] ?? '');
+        $this->assertSame('+05:45', $json['timezone']);
+        $this->assertStringContainsString('offset note', rawWiki('quickjot:test'));
+    }
+
+    public function testUnknownTimezoneIsRejected()
+    {
+        $json = $this->callApi(
+            'plugin_quickjot',
+            ['text' => 'nope', 'tz' => 'Mars/Olympus'],
+            $this->token
+        );
+
+        $this->assertFalse($json['ok']);
+        $this->assertFalse(page_exists('quickjot:test'), 'a wrong timezone must not silently write');
+    }
+
     public function testAddNoteCreatesPage()
     {
         $json = $this->callApi('plugin_quickjot', ['text' => 'first note'], $this->token);

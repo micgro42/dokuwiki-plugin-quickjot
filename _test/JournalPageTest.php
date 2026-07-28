@@ -51,6 +51,72 @@ class JournalPageTest extends DokuWikiTest
         $this->assertSame('my_journal:2026', $this->journal->getTodayId($stamp));
     }
 
+    /**
+     * A fixed instant late enough in the UTC day that a positive offset lands on the next
+     *
+     * @return int
+     */
+    protected function lateUtcEvening()
+    {
+        return gmmktime(23, 30, 0, 7, 26, 2026);
+    }
+
+    public function testTimezoneDecidesWhichDayItIs()
+    {
+        $this->setConf('pagepattern', 'journal:%Y-%m-%d');
+        $stamp = $this->lateUtcEvening();
+
+        $this->journal->useTimezone('UTC');
+        $this->assertSame('journal:2026-07-26', $this->journal->getTodayId($stamp));
+
+        // 23:30 UTC is already half past one the next morning in Berlin
+        $this->journal->useTimezone('Europe/Berlin');
+        $this->assertSame('journal:2026-07-27', $this->journal->getTodayId($stamp));
+    }
+
+    public function testTimezoneStampsTheNote()
+    {
+        $this->journal->useTimezone('Asia/Kathmandu');
+        $this->assertSame('05:15', $this->journal->renderTime($this->lateUtcEvening()));
+    }
+
+    public function testPlainOffsetIsAccepted()
+    {
+        $this->journal->useTimezone('', '+05:45');
+
+        $this->assertSame('+05:45', $this->journal->timezone()->getName());
+        $this->assertSame('05:15', $this->journal->renderTime($this->lateUtcEvening()));
+    }
+
+    public function testOffsetCoversAnUnknownTimezoneName()
+    {
+        // a server with an outdated timezone database must still get the time right
+        $this->journal->useTimezone('Mars/Olympus', '+02:00');
+        $this->assertSame('01:30', $this->journal->renderTime($this->lateUtcEvening()));
+    }
+
+    public function testUnusableTimezoneIsRejected()
+    {
+        $this->expectException(QuickJotException::class);
+        $this->journal->useTimezone('Mars/Olympus', 'not an offset');
+    }
+
+    public function testConfiguredTimezoneAppliesWithoutAClient()
+    {
+        $this->setConf('timezone', 'Europe/Berlin');
+
+        $this->assertSame('Europe/Berlin', $this->journal->timezone()->getName());
+        $this->assertSame('01:30', $this->journal->renderTime($this->lateUtcEvening()));
+    }
+
+    public function testClientTimezoneBeatsTheConfiguredOne()
+    {
+        $this->setConf('timezone', 'Europe/Berlin');
+        $this->journal->useTimezone('UTC');
+
+        $this->assertSame('23:30', $this->journal->renderTime($this->lateUtcEvening()));
+    }
+
     public function testParseHeading()
     {
         $this->assertSame(['Notes', 2], $this->journal->parseHeading());

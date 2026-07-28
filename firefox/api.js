@@ -54,6 +54,34 @@ function originPattern(baseUrl) {
 }
 
 /**
+ * How this device's clock relates to UTC.
+ *
+ * The wiki may well run on a server in another timezone - usually UTC - and it is this
+ * device's idea of "today" and "now" that a note should be filed under. Both fields are
+ * sent: the IANA name is the accurate one because it carries the DST rules, the offset
+ * is a fallback for a server whose timezone database does not know the name.
+ *
+ * @returns {{tz: string, tzoffset: string}}
+ */
+function localTimezone() {
+    let name = '';
+    try {
+        name = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch (e) {
+        // no Intl data - the offset below is enough on its own
+    }
+
+    // getTimezoneOffset() counts minutes *behind* UTC, ISO 8601 counts them ahead
+    const minutes = -new Date().getTimezoneOffset();
+    const pad = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0');
+
+    return {
+        tz: name,
+        tzoffset: (minutes < 0 ? '-' : '+') + pad(minutes / 60) + ':' + pad(minutes % 60),
+    };
+}
+
+/**
  * POST to one of the plugin's ajax calls.
  *
  * Errors are raised as Error objects carrying the message the wiki sent, so callers
@@ -69,8 +97,11 @@ async function callApi(call, fields = {}) {
         throw new Error('QuickJot is not configured yet - open the options page first.');
     }
 
+    // added here rather than at the call sites so no caller can forget it
+    const payload = {...localTimezone(), ...fields};
+
     const body = new URLSearchParams();
-    for (const [key, value] of Object.entries(fields)) {
+    for (const [key, value] of Object.entries(payload)) {
         if (value) body.append(key, value);
     }
 
