@@ -147,28 +147,70 @@ class ShareActionTest extends DokuWikiTest
         );
     }
 
-    public function testSharedFieldsPrefillTheForm()
+    public function testSharedTextBecomesTheQuoteAndLeavesTheNoteEmpty()
     {
         $response = $this->request('testuser', [
-            'qj_text' => 'worth reading',
+            'qj_text' => 'the passage I highlighted',
             'qj_url' => 'https://example.com/article',
             'qj_title' => 'An Article',
         ]);
 
-        $this->assertSame('worth reading', $this->fieldValue($response, 'qj_text'));
+        $this->assertSame(
+            '',
+            $this->fieldValue($response, 'qj_text'),
+            'the note is for the user\'s own words'
+        );
+        $this->assertSame('the passage I highlighted', $this->fieldValue($response, 'qj_quote'));
         $this->assertSame('https://example.com/article', $this->fieldValue($response, 'qj_url'));
         $this->assertSame('An Article', $this->fieldValue($response, 'qj_title'));
     }
 
-    public function testTrailingUrlInTextBecomesTheLinkField()
+    public function testABareLinkShareBecomesTheLink()
     {
-        // how most Android apps actually share: the link tacked onto the end of the text
+        // sharing a page from the browser: the URL arrives as the text, nothing else
         $response = $this->request('testuser', [
-            'qj_text' => 'Some Headline https://example.com/article',
+            'qj_text' => 'https://example.com/article',
+            'qj_title' => 'An Article',
         ]);
 
-        $this->assertSame('Some Headline', $this->fieldValue($response, 'qj_text'));
         $this->assertSame('https://example.com/article', $this->fieldValue($response, 'qj_url'));
+        $this->assertSame('', $this->fieldValue($response, 'qj_quote'));
+        $this->assertSame('', $this->fieldValue($response, 'qj_text'));
+    }
+
+    /**
+     * A link inside a highlighted passage belongs to the passage. Promoting it would cut
+     * it out of the quote and claim it was the page the share came from.
+     */
+    public function testALinkInsideSharedTextStaysInTheQuote()
+    {
+        $response = $this->request('testuser', [
+            'qj_text' => 'they cite https://example.com/source for this',
+            'qj_url' => 'https://example.com/article',
+        ]);
+
+        $this->assertSame(
+            'they cite https://example.com/source for this',
+            $this->fieldValue($response, 'qj_quote')
+        );
+        $this->assertSame(
+            'https://example.com/article',
+            $this->fieldValue($response, 'qj_url'),
+            'the link field must still be the page that was shared from'
+        );
+    }
+
+    public function testATrailingLinkIsNotTornOffTheQuote()
+    {
+        $response = $this->request('testuser', [
+            'qj_text' => 'worth reading https://example.com/source',
+        ]);
+
+        $this->assertSame(
+            'worth reading https://example.com/source',
+            $this->fieldValue($response, 'qj_quote')
+        );
+        $this->assertSame('', $this->fieldValue($response, 'qj_url'));
     }
 
     public function testTheFormDoesNotPostBackToTheSharedUrl()
@@ -201,6 +243,101 @@ class ShareActionTest extends DokuWikiTest
         $redirects = $this->redirects($response);
         $this->assertCount(1, $redirects, 'a successful save must redirect exactly once');
         $this->assertStringContainsString('qj_saved=quickjot%3Atest', $redirects[0]);
+    }
+
+    public function testQuoteIsSavedUnderTheNote()
+    {
+        $this->request('testuser', [], [
+            'do' => 'quickjot',
+            'quickjot_save' => '1',
+            'sectok' => $this->tokenFor('testuser'),
+            'qj_text' => 'my own thought',
+            'qj_quote' => 'the passage I highlighted',
+            'qj_url' => 'https://example.com/article',
+        ]);
+
+        $text = rawWiki('quickjot:test');
+        $this->assertStringContainsString('my own thought', $text);
+        $this->assertStringContainsString('> the passage I highlighted', $text);
+        $this->assertLessThan(
+            strpos($text, '> the passage I highlighted'),
+            strpos($text, 'my own thought'),
+            'the quote belongs under the note'
+        );
+    }
+
+    /**
+     * Sharing a passage worth keeping is a complete thought; commentary is optional.
+     */
+    public function testAQuoteAloneCanBeSaved()
+    {
+        $response = $this->request('testuser', [], [
+            'do' => 'quickjot',
+            'quickjot_save' => '1',
+            'sectok' => $this->tokenFor('testuser'),
+            'qj_text' => '',
+            'qj_quote' => 'a passage on its own',
+            'qj_url' => 'https://example.com/article',
+        ]);
+
+        $this->assertCount(1, $this->redirects($response), 'a quote alone must be saveable');
+        $text = rawWiki('quickjot:test');
+        $this->assertStringContainsString('> a passage on its own', $text);
+        $this->assertStringContainsString('[[https://example.com/article|', $text);
+        $this->assertDoesNotMatchRegularExpression(
+            '/\*\* +$/m',
+            $text,
+            'a note with no words must not leave a dangling timestamp'
+        );
+    }
+
+    public function testAnEmptyFormSavesNothing()
+    {
+        $response = $this->request('testuser', [], [
+            'do' => 'quickjot',
+            'quickjot_save' => '1',
+            'sectok' => $this->tokenFor('testuser'),
+            'qj_text' => '',
+            'qj_quote' => '',
+        ]);
+
+        $this->assertFalse(page_exists('quickjot:test'));
+        $this->assertSame([], $this->redirects($response));
+    }
+
+    public function testFailedSaveKeepsTheQuoteToo()
+    {
+        $response = $this->request('testuser', [], [
+            'do' => 'quickjot',
+            'quickjot_save' => '1',
+            'sectok' => 'not-the-token',
+            'qj_text' => 'my thought',
+            'qj_quote' => 'the passage',
+        ]);
+
+        $this->assertSame('my thought', $this->fieldValue($response, 'qj_text'));
+        $this->assertSame('the passage', $this->fieldValue($response, 'qj_quote'));
+    }
+
+    public function testManifestOffersANewNoteShortcut()
+    {
+        $manifest = [];
+        Event::createAndTrigger('MANIFEST_SEND', $manifest);
+
+        $this->assertArrayHasKey('shortcuts', $manifest);
+        $this->assertCount(1, $manifest['shortcuts']);
+        $this->assertStringContainsString('do=quickjot', $manifest['shortcuts'][0]['url']);
+        $this->assertNotSame('', $manifest['shortcuts'][0]['name']);
+    }
+
+    public function testManifestKeepsExistingShortcuts()
+    {
+        $mine = ['name' => 'Search', 'url' => '/doku.php?do=search'];
+        $manifest = ['shortcuts' => [$mine]];
+        Event::createAndTrigger('MANIFEST_SEND', $manifest);
+
+        $this->assertSame($mine, $manifest['shortcuts'][0], 'existing shortcuts must not be touched');
+        $this->assertCount(2, $manifest['shortcuts']);
     }
 
     public function testBadSecurityTokenSavesNothing()
@@ -327,45 +464,61 @@ class ShareActionTest extends DokuWikiTest
     public static function provideShares()
     {
         return [
-            'nothing to do' => [
-                'A Title', 'plain note', '',
-                ['title' => 'A Title', 'text' => 'plain note', 'url' => ''],
+            'shared text becomes the quote' => [
+                'A Title', 'a passage', '',
+                ['title' => 'A Title', 'text' => '', 'quote' => 'a passage', 'url' => ''],
             ],
             'text is nothing but a link' => [
                 'A Title', 'https://example.com/a', '',
-                ['title' => 'A Title', 'text' => '', 'url' => 'https://example.com/a'],
+                ['title' => 'A Title', 'text' => '', 'quote' => '', 'url' => 'https://example.com/a'],
             ],
-            'link tacked onto the end' => [
+            'a link at the end stays in the quote' => [
                 '', 'read this https://example.com/a', '',
-                ['title' => '', 'text' => 'read this', 'url' => 'https://example.com/a'],
-            ],
-            'link on its own line' => [
-                '', "read this\nhttps://example.com/a", '',
-                ['title' => '', 'text' => 'read this', 'url' => 'https://example.com/a'],
-            ],
-            'an explicit url is left alone' => [
-                '', 'read this https://example.com/a', 'https://example.com/b',
                 [
                     'title' => '',
-                    'text' => 'read this https://example.com/a',
+                    'text' => '',
+                    'quote' => 'read this https://example.com/a',
+                    'url' => '',
+                ],
+            ],
+            'a link on its own line stays in the quote' => [
+                '', "read this\nhttps://example.com/a", '',
+                [
+                    'title' => '',
+                    'text' => '',
+                    'quote' => "read this\nhttps://example.com/a",
+                    'url' => '',
+                ],
+            ],
+            'an explicit url wins over a bare link share' => [
+                '', 'https://example.com/a', 'https://example.com/b',
+                [
+                    'title' => '',
+                    'text' => '',
+                    'quote' => 'https://example.com/a',
                     'url' => 'https://example.com/b',
                 ],
             ],
-            'a link in the middle is not the trailing one' => [
+            'a link in the middle stays put' => [
                 '', 'see https://example.com/a for details', '',
-                ['title' => '', 'text' => 'see https://example.com/a for details', 'url' => ''],
+                [
+                    'title' => '',
+                    'text' => '',
+                    'quote' => 'see https://example.com/a for details',
+                    'url' => '',
+                ],
             ],
-            'a trailing word is not a link' => [
-                '', 'nothing to see here', '',
-                ['title' => '', 'text' => 'nothing to see here', 'url' => ''],
-            ],
-            'a non http scheme is not moved' => [
-                '', 'call me tel:+123456', '',
-                ['title' => '', 'text' => 'call me tel:+123456', 'url' => ''],
+            'a non http scheme is not a link share' => [
+                '', 'tel:+123456', '',
+                ['title' => '', 'text' => '', 'quote' => 'tel:+123456', 'url' => ''],
             ],
             'everything is trimmed' => [
                 '  T  ', "  note  \n", '  ',
-                ['title' => 'T', 'text' => 'note', 'url' => ''],
+                ['title' => 'T', 'text' => '', 'quote' => 'note', 'url' => ''],
+            ],
+            'an empty share stays empty' => [
+                '', '', '',
+                ['title' => '', 'text' => '', 'quote' => '', 'url' => ''],
             ],
         ];
     }

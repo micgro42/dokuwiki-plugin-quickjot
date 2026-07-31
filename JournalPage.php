@@ -239,7 +239,7 @@ class JournalPage
     /**
      * Build the wiki markup for a single note
      *
-     * @param string $text the note itself, required
+     * @param string $text the note itself, required unless there is a quote
      * @param string $quote text quoted from the source page, optional
      * @param string $url URL to attach as a link, optional
      * @param string $title link title, falls back to the URL itself
@@ -249,19 +249,24 @@ class JournalPage
     public function renderNote($text, $quote = '', $url = '', $title = '', $now = null)
     {
         $text = $this->normalize($text);
-        if ($text === '') {
+        $quote = $this->normalize($quote);
+
+        // a note has to say something, but a passage worth keeping says plenty on its own -
+        // demanding commentary before a quote may be saved would only invite filler
+        if ($text === '' && $quote === '') {
             throw new QuickJotException($this->plugin->getLang('err_notext'), 400);
         }
 
         // keep the note on a single line so it stays one list item
-        $line = implode(' \\\\ ', explode("\n", $text));
+        $parts = [];
+        if ($text !== '') $parts[] = implode(' \\\\ ', explode("\n", $text));
 
         $link = $this->renderLink($url, $title);
-        if ($link !== '') $line .= ' ' . $link;
+        if ($link !== '') $parts[] = $link;
 
-        $markup = '  * **' . $this->renderTime($now) . '** ' . $line;
+        // rtrim, because a quote-only note has nothing following the timestamp
+        $markup = rtrim('  * **' . $this->renderTime($now) . '** ' . implode(' ', $parts));
 
-        $quote = $this->normalize($quote);
         if ($quote !== '') {
             foreach (explode("\n", $quote) as $quoteLine) {
                 $markup .= "\n" . rtrim('> ' . $quoteLine);

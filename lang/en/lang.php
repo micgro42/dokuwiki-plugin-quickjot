@@ -10,10 +10,15 @@ $lang['summary']       = 'quick note';
 
 $lang['share_title']   = 'Quick note';
 $lang['lbl_text']      = 'Note';
+$lang['lbl_quote']     = 'Quote';
 $lang['lbl_url']       = 'Link';
 $lang['lbl_title']     = 'Link title';
 $lang['btn_save']      = 'Save note';
 $lang['saved_ok']      = 'Note saved to %s';
+
+$lang['shortcut_new']       = 'New note';
+$lang['shortcut_new_short'] = 'Note';
+$lang['shortcut_new_desc']  = 'Write a quick note on today\'s page';
 
 $lang['err_notoken']   = 'No API token supplied';
 $lang['err_badtoken']  = 'Invalid API token';

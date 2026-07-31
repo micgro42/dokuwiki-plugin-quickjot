@@ -51,8 +51,12 @@ breaks - so each note remains one list item.
 
 The plugin adds a [Web Share Target][wst] to the wiki's web app manifest, which puts the
 wiki into Android's system share sheet: share a page from Chrome, selected text from a
-reader, or a link from a news app, and quickjot opens with the note already filled in. You
-review and edit it, then hit save - a share never writes to the wiki on its own.
+reader, or a link from a news app, and quickjot opens with a compose form already filled
+in. You review and edit it, then hit save - a share never writes to the wiki on its own.
+
+Long-pressing the installed app also offers a **New note** shortcut, which opens the same
+form empty. That is the way in for a thought that did not come from anywhere: there is no
+other app to share from, so the share sheet cannot help.
 
 [wst]: https://developer.mozilla.org/en-US/docs/Web/Manifest/share_target
 
@@ -72,9 +76,19 @@ Then share anything to the wiki's icon. Two things are worth knowing when it mis
 - **Chrome only registers share targets when the app is installed or updated.** After any
   change to the manifest - including enabling or disabling this plugin - uninstall the app
   and install it again, or the share sheet keeps showing the old registration.
-- **Most apps put the link at the end of the shared text** rather than in the dedicated
-  `url` field. quickjot pulls a trailing `http(s)` URL out into the link field so it ends up
-  a real link on the note; a URL in the *middle* of the text is left where it is.
+- **Shared text lands in *Quote*, not *Note*.** Whatever arrives through the share sheet
+  was written by somebody else - the passage you highlighted, or the page you were reading -
+  so it fills the quote and the note stays empty for your own words. Both fields are
+  editable, so a share you actually meant as a plain thought is one cut and paste away. A
+  quote may be saved without any note of your own; an empty form may not.
+- **A link inside the shared text is left where it is.** Only a share that is *nothing but*
+  a URL - what the browser sends when you share a page rather than a selection - becomes the
+  link field. A link quoted inside a passage stays in the passage, where DokuWiki renders a
+  bare URL as a link anyway; promoting it would both cut it out of the quote and claim it
+  was the page you shared from.
+- **Whether the source URL arrives at all is up to the sharing app.** Some send the article
+  URL alongside a selection, some send only the selection. quickjot cannot invent one, so
+  the link field is sometimes empty and yours to fill in.
 
 The manifest also gains a 192px and a 512px PNG icon, because Chrome will not install the
 app without a raster icon that size, and core offers only a 16px favicon and possibly an
@@ -108,7 +122,7 @@ Form-encoded body:
 
 | field | required | meaning |
 |---|---|---|
-| `text` | yes | the note |
+| `text` | unless `quote` | the note |
 | `quote` | no | text to render as a `>` blockquote under the note |
 | `url` | no | link to attach; must be `http`/`https` |
 | `title` | no | link title, falls back to the URL |

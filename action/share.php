@@ -98,7 +98,7 @@ class action_plugin_quickjot_share extends ActionPlugin
 
             $result = $journal->addNote(
                 $INPUT->post->str('qj_text'),
-                '',
+                $INPUT->post->str('qj_quote'),
                 $INPUT->post->str('qj_url'),
                 $INPUT->post->str('qj_title')
             );
@@ -162,6 +162,7 @@ class action_plugin_quickjot_share extends ActionPlugin
             $values = [
                 'title' => $INPUT->post->str('qj_title'),
                 'text' => $INPUT->post->str('qj_text'),
+                'quote' => $INPUT->post->str('qj_quote'),
                 'url' => $INPUT->post->str('qj_url'),
             ];
         } else {
@@ -192,8 +193,14 @@ class action_plugin_quickjot_share extends ActionPlugin
         $form->addTextarea('qj_text', $this->getLang('lbl_text'))
             ->useInput(false)
             ->val($values['text'])
-            ->attr('rows', '6')
+            ->attr('rows', '4')
             ->attr('autofocus', 'autofocus');
+        // below the note, because the note is what the user came here to write - the quote
+        // is already filled in and only wants reading over
+        $form->addTextarea('qj_quote', $this->getLang('lbl_quote'))
+            ->useInput(false)
+            ->val($values['quote'])
+            ->attr('rows', '4');
         $form->addTextInput('qj_url', $this->getLang('lbl_url'))
             ->useInput(false)
             ->val($values['url'])
@@ -269,19 +276,25 @@ HTML;
     }
 
     /**
-     * Sort the three shared fields into the three the plugin actually wants
+     * Sort the shared fields into the fields of the compose form
      *
-     * Android apps are inconsistent about which field a link goes in: most put the URL at
-     * the end of "text" and the headline in "title", leaving "url" empty. Pulling that
-     * trailing URL out means it becomes a proper link in the note instead of bare text
-     * sitting in the middle of a sentence.
+     * Whatever arrives through the share sheet was written by somebody else - it is the
+     * passage the user highlighted, or the page they were reading. So it becomes the
+     * quote, and the note itself stays empty for the user's own words. Both are editable,
+     * so a share that was really meant as a plain thought is one cut and paste away.
+     *
+     * Sharing a bare link is the one case where the URL arrives as the text, because
+     * there is nothing else to send. A link *inside* a longer selection is left where it
+     * is: it belongs to the passage, and promoting it would both cut it out of the quote
+     * and claim it was the source of the share, which it was not. DokuWiki renders a bare
+     * URL in wiki text as a link anyway.
      *
      * Pure and static so the guessing can be tested without a request.
      *
      * @param string $title
      * @param string $text
      * @param string $url
-     * @return array{title: string, text: string, url: string}
+     * @return array{title: string, text: string, quote: string, url: string}
      */
     public static function normalizeShare($title, $text, $url)
     {
@@ -289,33 +302,27 @@ HTML;
         $text = trim((string)$text);
         $url = trim((string)$url);
 
-        // only when the app did not tell us a URL itself - it knows better than we do
-        if ($url === '' && $text !== '') {
-            $words = preg_split('/\s+/', $text) ?: [];
-            $last = (string)end($words);
-            if (self::isHttpUrl($last)) {
-                array_pop($words);
-                $url = $last;
-                // a share that was nothing but a link leaves the text empty, which is
-                // the right thing: the user gets to type the note themselves
-                $text = trim(implode(' ', $words));
-            }
+        // only when the app did not name a URL itself - it knows better than we do
+        if ($url === '' && self::isHttpUrl($text)) {
+            $url = $text;
+            $text = '';
         }
 
-        return ['title' => $title, 'text' => $text, 'url' => $url];
+        return ['title' => $title, 'text' => '', 'quote' => $text, 'url' => $url];
     }
 
     /**
-     * Is this a plain http(s) URL?
+     * Is this string nothing but a plain http(s) URL?
      *
-     * Conservative on purpose - a false negative just leaves the text alone, while a
-     * false positive would tear a word off the end of somebody's note.
+     * Deliberately whole-string: a value carrying anything besides the URL is a passage
+     * that happens to contain a link, not a link.
      *
      * @param string $candidate
      * @return bool
      */
     protected static function isHttpUrl($candidate)
     {
+        if ($candidate === '' || preg_match('/\s/', $candidate)) return false;
         if (!preg_match('#^https?://#i', $candidate)) return false;
         $host = parse_url($candidate, PHP_URL_HOST);
         return is_string($host) && $host !== '';
@@ -334,6 +341,24 @@ HTML;
             'action' => DOKU_BASE . 'lib/plugins/quickjot/share.php',
             'method' => 'GET',
             'params' => ['title' => 'title', 'text' => 'text', 'url' => 'url'],
+        ];
+
+        // Long-pressing the installed app offers this, which is the way in for a thought
+        // that did not come from anywhere - no other app to share from, so the share sheet
+        // cannot help. Appended, so a wiki declaring its own shortcuts keeps them.
+        if (!isset($event->data['shortcuts']) || !is_array($event->data['shortcuts'])) {
+            $event->data['shortcuts'] = [];
+        }
+        $event->data['shortcuts'][] = [
+            'name' => $this->getLang('shortcut_new'),
+            'short_name' => $this->getLang('shortcut_new_short'),
+            'description' => $this->getLang('shortcut_new_desc'),
+            'url' => DOKU_BASE . DOKU_SCRIPT . '?do=' . self::ACT,
+            'icons' => [[
+                'src' => DOKU_BASE . 'lib/plugins/quickjot/icon-192.png',
+                'sizes' => '192x192',
+                'type' => 'image/png',
+            ]],
         ];
 
         // A share target only ever reaches the share sheet by way of an installed WebAPK,
