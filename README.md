@@ -47,6 +47,43 @@ breaks - so each note remains one list item.
    This is DokuWiki's own per-user token - regenerating it revokes the old one, and it is
    the same token for every client you point at this wiki.
 
+## Android share sheet (PWA)
+
+The plugin adds a [Web Share Target][wst] to the wiki's web app manifest, which puts the
+wiki into Android's system share sheet: share a page from Chrome, selected text from a
+reader, or a link from a news app, and quickjot opens with the note already filled in. You
+review and edit it, then hit save - a share never writes to the wiki on its own.
+
+[wst]: https://developer.mozilla.org/en-US/docs/Web/Manifest/share_target
+
+Requirements:
+
+- The wiki must be on **public HTTPS with a valid certificate**. A self-signed cert or a
+  LAN-only hostname will not do; Android refuses to install the app at all.
+- Log in **with "remember me"** in the browser you install from. The compose form is
+  authenticated by the ordinary session cookie, and a share that arrives logged out lands
+  on the login form with the shared text dropped.
+- Install the wiki as an app: Chrome → ⋮ → **Install app** (older versions call it *Add to
+  home screen*, and only the WebAPK it creates carries the share target - a plain bookmark
+  shortcut does not).
+
+Then share anything to the wiki's icon. Two things are worth knowing when it misbehaves:
+
+- **Chrome only registers share targets when the app is installed or updated.** After any
+  change to the manifest - including enabling or disabling this plugin - uninstall the app
+  and install it again, or the share sheet keeps showing the old registration.
+- **Most apps put the link at the end of the shared text** rather than in the dedicated
+  `url` field. quickjot pulls a trailing `http(s)` URL out into the link field so it ends up
+  a real link on the note; a URL in the *middle* of the text is left where it is.
+
+The manifest also gains a 192px and a 512px PNG icon, because Chrome will not install the
+app without a raster icon that size, and core offers only a 16px favicon and possibly an
+SVG. Icons the wiki already declares are left untouched.
+
+Note that the shared text travels as a query parameter, so it appears in the browser's
+history and in the server's access log. Saving redirects to a clean URL, but the compose
+URL itself is not private.
+
 ## The API
 
 Both calls are `POST` to `lib/exe/ajax.php`, authenticated with
