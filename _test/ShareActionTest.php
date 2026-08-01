@@ -415,7 +415,7 @@ class ShareActionTest extends DokuWikiTest
 
     public function testManifestAdvertisesTheShareTarget()
     {
-        $manifest = ['icons' => []];
+        $manifest = [];
         Event::createAndTrigger('MANIFEST_SEND', $manifest);
 
         $this->assertArrayHasKey('share_target', $manifest);
@@ -425,24 +425,54 @@ class ShareActionTest extends DokuWikiTest
             ['title' => 'title', 'text' => 'text', 'url' => 'url'],
             $manifest['share_target']['params']
         );
-
-        $sizes = array_column($manifest['icons'], 'sizes');
-        $this->assertContains('192x192', $sizes, 'Chrome needs a 192px raster icon to install the PWA');
-        $this->assertContains('512x512', $sizes);
-    }
-
-    public function testManifestKeepsExistingIcons()
-    {
-        $mine = ['src' => '/custom.png', 'sizes' => '256x256'];
-        $manifest = ['icons' => [$mine]];
-        Event::createAndTrigger('MANIFEST_SEND', $manifest);
-
-        $this->assertSame($mine, $manifest['icons'][0], 'existing icons must not be touched');
     }
 
     /**
-     * The icon files the manifest points at have to actually be there, or Chrome quietly
-     * refuses to install the PWA and the share target never appears.
+     * The manifest's top level icons are the whole app's identity - launcher icon, splash
+     * screen, share sheet entry - and belong to the wiki. quickjot's notepad goes on the
+     * shortcut that is actually quickjot's, and nowhere else.
+     *
+     * @dataProvider provideIconSets
+     */
+    public function testManifestNeverTouchesTheAppIcon($icons)
+    {
+        $manifest = $icons === null ? [] : ['icons' => $icons];
+        $before = $manifest;
+        Event::createAndTrigger('MANIFEST_SEND', $manifest);
+
+        $this->assertSame(
+            $before['icons'] ?? null,
+            $manifest['icons'] ?? null,
+            'the app icon is the wiki\'s to decide'
+        );
+    }
+
+    public function provideIconSets()
+    {
+        return [
+            'no icons member at all' => [null],
+            'an empty list' => [[]],
+            'only a favicon' => [[['src' => '/favicon.ico', 'sizes' => '16x16']]],
+            'a logo of its own' => [[['src' => '/logo.png', 'sizes' => '256x256']]],
+        ];
+    }
+
+    public function testShortcutWearsTheQuickjotIcon()
+    {
+        $manifest = [];
+        Event::createAndTrigger('MANIFEST_SEND', $manifest);
+
+        $sources = array_column($manifest['shortcuts'][0]['icons'], 'src');
+        $this->assertNotSame([], $sources, 'the shortcut is the one place the notepad belongs');
+        foreach ($sources as $src) {
+            $this->assertStringContainsString('quickjot/icon-', $src);
+        }
+    }
+
+    /**
+     * The icon files the shortcut points at have to actually be there, and be the size
+     * they claim - a browser that fetches one and finds nothing drops the shortcut's icon
+     * without saying so.
      */
     public function testAdvertisedIconsExist()
     {

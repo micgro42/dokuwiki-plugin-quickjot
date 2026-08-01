@@ -70,6 +70,8 @@ Requirements:
 - Install the wiki as an app: Chrome → ⋮ → **Install app** (older versions call it *Add to
   home screen*, and only the WebAPK it creates carries the share target - a plain bookmark
   shortcut does not).
+- The wiki needs an **icon of at least 192px**, or there is no app to install. Most wikis
+  already have one; see *About the app icon* below if the install option never appears.
 
 Then share anything to the wiki's icon. Two things are worth knowing when it misbehaves:
 
@@ -90,9 +92,27 @@ Then share anything to the wiki's icon. Two things are worth knowing when it mis
   URL alongside a selection, some send only the selection. quickjot cannot invent one, so
   the link field is sometimes empty and yours to fill in.
 
-The manifest also gains a 192px and a 512px PNG icon, because Chrome will not install the
-app without a raster icon that size, and core offers only a 16px favicon and possibly an
-SVG. Icons the wiki already declares are left untouched.
+### About the app icon
+
+quickjot never touches the manifest's top-level `icons`. That is the whole app's identity -
+its launcher icon, its splash screen, its face in Android's share sheet - and it belongs to
+the wiki, not to a plugin that appends notes to a page. The notepad appears in exactly one
+place, on the **New note** shortcut, because a `shortcuts` entry carries its own icons and
+they label that shortcut alone. The share sheet entry has no icon to set: a share target
+*is* the app, so Android shows the app's own icon and name for it.
+
+The catch is that **Android will not build the installable app at all without an icon of at
+least 192px**, and a wiki whose only icon is the 16px favicon has none - so there is no app,
+and with it no share target. Core looks for `wiki:logo.svg`, `logo.svg` and
+`wiki:dokuwiki.svg` in the media manager and offers the first it finds, which covers most
+wikis. If yours has none of them, upload one, or name an icon in `conf/manifest.local.json`:
+
+```json
+{"icons": [{"src": "/lib/tpl/mytpl/logo.png", "sizes": "512x512", "type": "image/png"}]}
+```
+
+`?do=manifest` shows what the wiki currently declares. An icon marked `purpose: maskable`
+on its own does not count, since it is not usable as the plain icon.
 
 Note that the shared text travels as a query parameter, so it appears in the browser's
 history and in the server's access log. Saving redirects to a clean URL, but the compose

@@ -423,28 +423,24 @@ HTML;
             'short_name' => $this->getLang('shortcut_new_short'),
             'description' => $this->getLang('shortcut_new_desc'),
             'url' => DOKU_BASE . DOKU_SCRIPT . '?do=' . self::ACT,
-            'icons' => [[
-                'src' => DOKU_BASE . 'lib/plugins/quickjot/icon-192.png',
-                'sizes' => '192x192',
-                'type' => 'image/png',
-            ]],
+            // a shortcuts entry carries its own icons, which is the one place a notepad
+            // belongs: it labels this shortcut and nothing else. The manifest's top level
+            // "icons" is deliberately left alone - that is the whole app's identity, its
+            // launcher icon and splash screen and its face in the share sheet, and it is
+            // the wiki's to decide, not a note plugin's. See README on what to do when the
+            // app will not install for want of one.
+            'icons' => [
+                [
+                    'src' => DOKU_BASE . 'lib/plugins/quickjot/icon-192.png',
+                    'sizes' => '192x192',
+                    'type' => 'image/png',
+                ],
+                [
+                    'src' => DOKU_BASE . 'lib/plugins/quickjot/icon-512.png',
+                    'sizes' => '512x512',
+                    'type' => 'image/png',
+                ],
+            ],
         ];
-
-        // A share target only ever reaches the share sheet by way of an installed WebAPK,
-        // and Chrome will not mint one without a raster icon of at least 192px - core
-        // offers a 16px favicon and possibly an SVG, neither of which counts. These are
-        // appended rather than substituted, so a wiki that already ships good icons keeps
-        // them and simply gains two more candidates.
-        if (!isset($event->data['icons']) || !is_array($event->data['icons'])) {
-            $event->data['icons'] = [];
-        }
-        foreach ([192, 512] as $size) {
-            $event->data['icons'][] = [
-                'src' => DOKU_BASE . 'lib/plugins/quickjot/icon-' . $size . '.png',
-                'sizes' => $size . 'x' . $size,
-                'type' => 'image/png',
-                'purpose' => 'any',
-            ];
-        }
     }
 }
