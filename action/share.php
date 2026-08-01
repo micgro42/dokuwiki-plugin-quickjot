@@ -31,6 +31,7 @@ class action_plugin_quickjot_share extends ActionPlugin
     {
         $controller->register_hook('ACTION_ACT_PREPROCESS', 'BEFORE', $this, 'handlePreprocess');
         $controller->register_hook('TPL_ACT_UNKNOWN', 'BEFORE', $this, 'handleDisplay');
+        $controller->register_hook('TPL_METAHEADER_OUTPUT', 'BEFORE', $this, 'handleHeader');
         $controller->register_hook('MANIFEST_SEND', 'BEFORE', $this, 'handleManifest');
     }
 
@@ -211,6 +212,74 @@ class action_plugin_quickjot_share extends ActionPlugin
         $form->addButton('', $this->getLang('btn_save'))->attr('type', 'submit');
 
         return $form;
+    }
+
+    /**
+     * Add the compose form's stylesheet to the page head
+     *
+     * @param Event $event
+     * @param mixed $param
+     * @return void
+     */
+    public function handleHeader(Event $event, $param)
+    {
+        global $ACT;
+        if (act_clean($ACT) !== self::ACT) return;
+
+        $event->data['style'][] = [
+            'type' => 'text/css',
+            '_data' => $this->styleSheet(),
+        ];
+    }
+
+    /**
+     * The compose form's stylesheet, laying it out as a single column
+     *
+     * Inline for the same reason as the script below - a style.css would be concatenated
+     * into the CSS every wiki page loads, for the sake of one form almost nobody visits -
+     * but in the head rather than beside the form, so the phone never paints the jumble
+     * described below before the rules arrive.
+     *
+     * Form wraps each field in a <label> holding a <span> caption and the control, and
+     * gives that label no class of its own - so it stays inline, and all four fields run
+     * together into one wrapping line with the captions stranded wherever the line
+     * happens to break. (DokuWiki's own forms avoid this by calling addClass('block') on
+     * every element, which the default template then right-aligns; that is tidier but
+     * still leaves each control at its natural width, and is a rule only that template
+     * carries.) Stacking the caption above a full-width control instead gives every field
+     * the same two edges under any template, and is the shape a phone screen wants anyway.
+     *
+     * @return string
+     */
+    protected function styleSheet()
+    {
+        return <<<'CSS'
+.plugin_quickjot_share form {
+    display: block;
+    max-width: 40em;
+}
+.plugin_quickjot_share form label {
+    display: block;
+    text-align: left;
+    margin: 0 0 1em 0;
+}
+.plugin_quickjot_share form label > span {
+    display: block;
+    margin-bottom: 0.2em;
+}
+.plugin_quickjot_share form label input,
+.plugin_quickjot_share form label textarea {
+    display: block;
+    /* !important only to out-shout the default template's phone stylesheet, which forces
+       every textarea back to width:auto with an !important of its own */
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+.plugin_quickjot_share button {
+    padding: 0.5em 1.5em;
+}
+CSS;
     }
 
     /**
