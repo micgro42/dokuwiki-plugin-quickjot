@@ -1,6 +1,6 @@
 {
   "name": "quickjot-firefox",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Firefox extension for the DokuWiki quickjot plugin",
   "private": true,
   "license": "GPL-2.0-only",
