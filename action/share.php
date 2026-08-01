@@ -188,6 +188,8 @@ class action_plugin_quickjot_share extends ActionPlugin
         $form->setHiddenField('tz', '');
         $form->setHiddenField('tzoffset', '');
 
+        $this->addSaveButton($form);
+
         // useInput(false) throughout: left on, the elements prefill themselves straight
         // from the request and would overwrite everything decided above - normalizeShare()
         // in particular, whose whole job is to hand back something other than what came in
@@ -209,9 +211,29 @@ class action_plugin_quickjot_share extends ActionPlugin
         $form->addTextInput('qj_title', $this->getLang('lbl_title'))
             ->useInput(false)
             ->val($values['title']);
-        $form->addButton('', $this->getLang('btn_save'))->attr('type', 'submit');
+        $this->addSaveButton($form);
 
         return $form;
+    }
+
+    /**
+     * Add a save button to the form
+     *
+     * Called twice, so the form is bracketed by one. The note field takes focus by
+     * itself, which on a phone raises the on screen keyboard over the bottom half of the
+     * screen - and with it the button at the foot of the form, so saving a one line note
+     * meant dismissing the keyboard first just to reach the thing that saves. The copy
+     * above the fields is in view from the moment the form opens.
+     *
+     * Which one is pressed makes no difference: the form is recognised by its
+     * quickjot_save hidden field, not by the button, so neither carries a name of its own.
+     *
+     * @param Form $form
+     * @return void
+     */
+    protected function addSaveButton(Form $form)
+    {
+        $form->addButton('', $this->getLang('btn_save'))->attr('type', 'submit');
     }
 
     /**
@@ -278,6 +300,11 @@ class action_plugin_quickjot_share extends ActionPlugin
 }
 .plugin_quickjot_share button {
     padding: 0.5em 1.5em;
+}
+/* the copy above the fields, which needs air between it and the first caption. The
+   hidden inputs come first in the form, so this cannot be :first-child */
+.plugin_quickjot_share form button:first-of-type {
+    margin-bottom: 1em;
 }
 CSS;
     }

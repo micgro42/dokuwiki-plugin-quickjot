@@ -147,6 +147,32 @@ class ShareActionTest extends DokuWikiTest
         );
     }
 
+    /**
+     * The phone's keyboard covers the foot of the form as soon as the note field takes
+     * focus, so there has to be a save button above the fields as well as below them.
+     */
+    public function testFormIsBracketedBySaveButtons()
+    {
+        $response = $this->request('testuser');
+
+        $buttons = $response->queryHTML('#plugin__quickjot_share_form button');
+        $this->assertSame(2, $buttons->count(), 'one save button above the fields, one below');
+
+        // whichever is pressed, the form is recognised by its hidden field rather than
+        // the button, so both have to submit
+        foreach ($buttons as $button) {
+            $this->assertSame('submit', $button->getAttribute('type'));
+        }
+
+        // the first one has to come before the note field, or it is no help at all
+        $html = $response->getContent();
+        $this->assertLessThan(
+            strpos($html, 'name="qj_text"'),
+            strpos($html, '<button'),
+            'the first save button must precede the note field'
+        );
+    }
+
     public function testSharedTextBecomesTheQuoteAndLeavesTheNoteEmpty()
     {
         $response = $this->request('testuser', [
