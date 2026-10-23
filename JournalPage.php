@@ -412,7 +412,8 @@ class JournalPage
         $text = cleanText((string)$text);
         // control characters other than newline have no business in wiki text
         $text = preg_replace('/[\x00-\x09\x0B-\x1F\x7F]/u', '', $text) ?? '';
-        $lines = array_map('trim', explode("\n", $text));
+
+        $lines = array_map(trim(...), explode("\n", $text));
         return trim(implode("\n", $lines));
     }
 }
