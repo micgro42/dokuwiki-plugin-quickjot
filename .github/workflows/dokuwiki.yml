@@ -1,0 +1,14 @@
+name: DokuWiki Default Tasks
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 5 1 * *' # run on the first of every month at 5am UTC
+
+permissions:
+  contents: write # autofix pushes the bot/autofix branch
+  pull-requests: write # autofix opens a PR from it
+
+jobs:
+  all:
+    uses: dokuwiki/github-action/.github/workflows/all.yml@main
